@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres
+    restart: always
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_USER=kkw
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - '5678:5432'
+
+volumes:
+  postgres:
