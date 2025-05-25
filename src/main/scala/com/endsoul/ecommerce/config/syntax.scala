@@ -1,7 +1,7 @@
 package com.endsoul.ecommerce.config
 
-import cats.MonadThrow
 import cats.implicits.*
+import cats.MonadThrow
 
 import pureconfig.error.ConfigReaderException
 import pureconfig.{ConfigReader, ConfigSource}
