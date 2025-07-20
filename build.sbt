@@ -14,6 +14,9 @@ lazy val circeVersion  = "0.14.1"
 lazy val http4sVersion = "0.23.30"
 lazy val doobieVersion = "1.0.0-RC9"
 
+lazy val JwtHttp4sVersion = "1.2.0"
+lazy val JwtScalaVersion  = "9.3.0"
+
 lazy val scalaTestVersion           = "3.2.19"
 lazy val scalaTestCatsEffectVersion = "1.6.0"
 lazy val testContainerVersion       = "1.21.0"
@@ -40,6 +43,10 @@ lazy val server = (project in file("."))
       "org.tpolecat"          %% "doobie-core"         % doobieVersion,
       "org.tpolecat"          %% "doobie-hikari"       % doobieVersion,
       "org.tpolecat"          %% "doobie-postgres"     % doobieVersion,
+      "org.bouncycastle"       % "bcpkix-jdk18on"      % "1.81",
+      "dev.profunktor"        %% "http4s-jwt-auth"     % JwtHttp4sVersion,
+      "com.github.jwt-scala"  %% "jwt-core"            % JwtScalaVersion,
+      "com.github.jwt-scala"  %% "jwt-circe"           % JwtScalaVersion,
       // "org.tpolecat"          %% "doobie-postgres-circe" % doobieVersion,
       "org.tpolecat"      %% "doobie-scalatest"              % doobieVersion              % Test,
       "org.scalatest"     %% "scalatest"                     % scalaTestVersion           % Test,

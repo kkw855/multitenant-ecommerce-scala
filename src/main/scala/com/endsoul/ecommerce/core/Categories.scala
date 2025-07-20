@@ -26,6 +26,7 @@ class LiveCategories[F[_]: {MonadCancelThrow, Logger}] private (xa: Transactor[F
         slug,
         color
       FROM categories
+      ORDER BY name
     """
       .query[CategoryInfo]
       .to[List]
