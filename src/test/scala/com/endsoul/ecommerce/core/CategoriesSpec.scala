@@ -30,7 +30,7 @@ class CategoriesSpec
           retrieved  <- categories.all()
         } yield retrieved
 
-        program.asserting(_ shouldBe List(SoftwareCategory, DesignCategory))
+        program.asserting(_ shouldBe List(DesignCategory, SoftwareCategory))
       }
     }
   }

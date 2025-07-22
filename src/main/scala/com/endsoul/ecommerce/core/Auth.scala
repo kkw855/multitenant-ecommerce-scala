@@ -1,27 +1,27 @@
 package com.endsoul.ecommerce.core
 
-
 import cats.implicits.*
 import cats.effect.kernel.Async
-import cats.implicits.catsSyntaxApplicativeId
-import com.endsoul.ecommerce.domain.auth.{NewPasswordInfo, TokenPayLoad}
-import dev.profunktor.auth.jwt.JwtToken
-import pdi.jwt.{JwtClaim}
-import doobie.postgres.implicits._
-import com.endsoul.ecommerce.domain.user.{NewUserInfo, User}
-import com.endsoul.ecommerce.security.{Argon2, Authenticator}
 
-import org.typelevel.log4cats.Logger
+import dev.profunktor.auth.jwt.JwtToken
+import pdi.jwt.JwtClaim
+
 import io.circe.generic.auto.*
 import io.circe.parser.*
+
+import org.typelevel.log4cats.Logger
+
+import com.endsoul.ecommerce.domain.user.*
+import com.endsoul.ecommerce.domain.auth.*
+import com.endsoul.ecommerce.security.{Argon2, Authenticator}
 
 trait Auth[F[_]] {
   def authenticator: Authenticator[F]
   def authenticate: JwtToken => JwtClaim => F[Option[User]]
 
-  def signUp(newUserInfo: NewUserInfo): F[Option[(String, String)]]
-  def login(username: String, password: String): F[Option[(String, String)]]
-  def refreshToken(token: String): F[Option[(String, String)]]
+  def signUp(newUserInfo: NewUserInfo): F[Option[AuthToken]]
+  def login(username: String, password: String): F[Option[AuthToken]]
+  def refreshAccessToken(token: String): F[Option[String]]
   def changePassword(
       email: String,
       newPasswordInfo: NewPasswordInfo
@@ -36,44 +36,52 @@ class LiveAuth[F[_]: {Async, Logger}] private (
   override def authenticate: JwtToken => JwtClaim => F[Option[User]] =
     (token: JwtToken) =>
       (claim: JwtClaim) => {
-        decode[TokenPayLoad](claim.content) match {
+        decode[AccessTokenPayLoad](claim.content) match {
           case Right(payload) => users.find(payload.username)
           case Left(_)        => None.pure[F]
         }
       }
 
-  override def signUp(newUserInfo: NewUserInfo): F[Option[(String, String)]] = {
+  override def signUp(newUserInfo: NewUserInfo): F[Option[AuthToken]] = {
     users.find(newUserInfo.username).flatMap {
       case Some(_) => None.pure[F]
       case None =>
         for {
-          storedHash <- Argon2.hashPw[F](newUserInfo.password)
-          user       <- User(newUserInfo.username, newUserInfo.email, storedHash, None).pure[F]
-          _          <- users.create(user)
-          maybeJwtToken <- authenticator.encode(user)
-        } yield Some(maybeJwtToken)
+          storedHash   <- Argon2.hashPw[F](newUserInfo.password)
+          user         <- User(newUserInfo.username, newUserInfo.email, storedHash).pure[F]
+          _            <- users.create(user)
+          accessToken  <- authenticator.encodeAccessToken(user)
+          refreshToken <- authenticator.encodeRefreshToken(user.username)
+        } yield Some(AuthToken(accessToken, refreshToken))
     }
   }
 
-  override def login(username: String, password: String): F[Option[(String, String)]] =
+  override def login(username: String, password: String): F[Option[AuthToken]] =
     for {
       maybeUser <- users.find(username)
       // Option[User].filter(User => IO[Boolean]) => IO[Option[User]]
       maybeValidateUser <- maybeUser.filterA(user =>
         Argon2.checkPwBool[F](password, user.storedHash)
       )
-      maybeJwtToken <- maybeValidateUser.traverse(user => authenticator.encode(user))
-    } yield maybeJwtToken
+      authToken <- maybeValidateUser.traverse(user =>
+        for {
+          accessToken  <- authenticator.encodeAccessToken(user)
+          refreshToken <- authenticator.encodeRefreshToken(user.username)
+        } yield AuthToken(accessToken, refreshToken)
+      )
+    } yield authToken
 
-  def refreshToken(token: String): F[Option[(String, String)]] =
+  def refreshAccessToken(token: String): F[Option[String]] =
     for {
-      decoded <- authenticator.decodeToken(token)
+      decoded <- authenticator.decodeRefreshToken(token)
       maybeUser <- decoded match {
         case Some(value) => users.find(value.username)
-        case None => None.pure[F]
+        case None        => None.pure[F]
       }
-      maybeJwtToken <- maybeUser.traverse(user => authenticator.encode(user))
-    } yield maybeJwtToken
+      maybeNewAccessToken <- maybeUser.traverse(user =>
+        authenticator.encodeAccessToken(user)
+      )
+    } yield maybeNewAccessToken
 
   override def changePassword(
       email: String,

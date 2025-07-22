@@ -3,20 +3,24 @@ package com.endsoul.ecommerce.core
 import cats.effect.testing.scalatest.AsyncIOSpec
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+
 import cats.effect.*
+
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import com.endsoul.ecommerce.security.{Argon2, Authenticator}
-import com.endsoul.ecommerce.domain.auth.NewPasswordInfo
-import com.endsoul.ecommerce.domain.user.*
-import com.endsoul.ecommerce.fixtures.UserFixture
+
 import pdi.jwt.JwtAlgorithm
 import pdi.jwt.algorithms.JwtHmacAlgorithm
+
+import com.endsoul.ecommerce.security.{Argon2, Authenticator}
+import com.endsoul.ecommerce.domain.auth.*
+import com.endsoul.ecommerce.domain.user.*
+import com.endsoul.ecommerce.fixtures.UserFixture
 
 class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFixture {
 
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  
+
   //////////////////////////////////////////////////////////////////////////////////
   // prep
   //////////////////////////////////////////////////////////////////////////////////
@@ -30,11 +34,16 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
   }
 
   val mockedAuthenticator: Authenticator[IO] = new Authenticator[IO] {
-    override def encode(username: String): IO[String] = IO.pure("someToken")
-
     // TODO:
-    override val key: String = "secretKey"
+    override val key: String                 = "secretKey"
     override val algorithm: JwtHmacAlgorithm = JwtAlgorithm.HS256
+
+    override def encodeAccessToken(user: User): IO[String] =
+      IO.pure("accessToken")
+    override def encodeRefreshToken(username: String): IO[String] =
+      IO.pure("refreshToken")
+    override def decodeRefreshToken(token: String): IO[Option[RefreshTokenPayLoad]] =
+      IO.pure(Some(RefreshTokenPayLoad("username")))
   }
 
   "Auth 'algebra'" - {
@@ -56,29 +65,25 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
     "signing up should create a completely new user" in {
       val program = for {
         auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
-        maybeUser <- auth.signUp(
+        maybeAuthToken <- auth.signUp(
           NewUserInfo(
             "Bob",
             "bob@gmail.com",
             "somePassword"
           )
         )
-      } yield maybeUser
+      } yield maybeAuthToken
 
       program.asserting(_ should matchPattern {
         case Some(
-        User(
-        "Bob",
-        "bob@gmail.com",
-        _
-        )
-        ) =>
+              AuthToken("accessToken", "refreshToken")
+            ) =>
       })
     }
 
     "login should return None if the user doesn't exist" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
+        auth       <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
         maybeToken <- auth.login("user@gmail.com", "password")
       } yield maybeToken
 
@@ -87,7 +92,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
     "login should return a token if the user exists but the password is wrong" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
+        auth       <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
         maybeToken <- auth.login(leeUsername, "wrong-password")
       } yield maybeToken
 
@@ -96,7 +101,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
     "login should return a token if the user exists and the password is correct" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
+        auth       <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
         maybeToken <- auth.login(leeUsername, "lee123")
       } yield maybeToken
 
@@ -105,7 +110,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
     "changePassword should correctly change password if all details are correct" in {
       val program = for {
-        auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
+        auth   <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
         result <- auth.changePassword(leeUsername, NewPasswordInfo(leePassword, "scala-rocks"))
         isNicePassword <- result match {
           case Right(Some(user)) =>

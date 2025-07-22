@@ -26,12 +26,12 @@ CREATE TRIGGER update_users_updated_at
     FOR EACH ROW
 EXECUTE PROCEDURE update_updated_at_column();
 
-INSERT INTO users(username, email, stored_hash)
+INSERT INTO users(username, email, stored_hash, created_at)
 VALUES ('Lee',
         'lee@gmail.com',
-        '/ELXh1K0RhxExGt5iy+M+g==,ycaoYHXvOuVDNSdBcHf2AfL3t+Blm+5D/BlSwfA+fhg=');
+        '/ELXh1K0RhxExGt5iy+M+g==,ycaoYHXvOuVDNSdBcHf2AfL3t+Blm+5D/BlSwfA+fhg=', '2025-07-21T08:51:44.953991Z');
 
-INSERT INTO users(username, email, stored_hash)
+INSERT INTO users(username, email, stored_hash, created_at)
 VALUES ('Hong',
         'hong@gmail.com',
-        '$2a$10$5tVg0GGcZ/INAq/dfApDPufBcOR1kAUumwrRm5w7WrMdJG159f382');
+        '$2a$10$5tVg0GGcZ/INAq/dfApDPufBcOR1kAUumwrRm5w7WrMdJG159f382', '2025-07-20T08:51:44.953991Z');

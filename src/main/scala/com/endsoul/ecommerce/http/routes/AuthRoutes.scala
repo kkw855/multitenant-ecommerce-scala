@@ -37,14 +37,14 @@ class AuthRoutes[F[_]: {Concurrent, Logger}] private (auth: Auth[F]) extends Htt
     case req @ POST -> Root / "users" =>
       for {
         newUserInfo   <- req.as[NewUserInfo]
-        maybeJwtToken <- auth.signUp(newUserInfo)
-        resp <- maybeJwtToken match {
-          case Some((accessToken, refreshToken)) =>
-            Created(Token(accessToken)).map(
+        maybeAuthToken <- auth.signUp(newUserInfo)
+        resp <- maybeAuthToken match {
+          case Some(authToken) =>
+            Created(Token(authToken.accessToken)).map(
               _.addCookie(
                 ResponseCookie(
                   name = "funroad-token",
-                  content = refreshToken,
+                  content = authToken.refreshToken,
                   httpOnly = true,
                   secure = false,
                   path = Some("/")
@@ -62,17 +62,17 @@ class AuthRoutes[F[_]: {Concurrent, Logger}] private (auth: Auth[F]) extends Htt
     val maybeJwtToken = for {
       loginInfo  <- req.as[LoginInfo]
       maybeToken <- auth.login(loginInfo.username, loginInfo.password)
-      _          <- Logger[F].info(s"User logging in: ${loginInfo.username}")
+      _          <- Logger[F].info(s"User logging in: ${loginInfo}")
     } yield maybeToken
 
     maybeJwtToken.map {
-      case Some((accessToken, refreshToken)) =>
+      case Some(authToken) =>
         Response(Status.Ok)
-          .withEntity(Token(accessToken))
+          .withEntity(Token(authToken.accessToken))
           .addCookie(
             ResponseCookie(
               name = "funroad-token",
-              content = refreshToken,
+              content = authToken.refreshToken,
               httpOnly = true,
               secure = false,
               path = Some("/")
@@ -114,10 +114,10 @@ class AuthRoutes[F[_]: {Concurrent, Logger}] private (auth: Auth[F]) extends Htt
       refreshToken match {
         case Some(token) =>
           for {
-            maybeJwtToken <- auth.refreshToken(token)
-            _             <- Logger[F].info(s"RefreshToken: $maybeJwtToken")
-            resp <- maybeJwtToken match {
-              case Some((accessToken, _)) => Ok(Token(accessToken))
+            maybeAccessToken <- auth.refreshAccessToken(token)
+            _             <- Logger[F].info(s"RefreshToken: $maybeAccessToken")
+            resp <- maybeAccessToken match {
+              case Some(accessToken) => Ok(Token(accessToken))
               case None                   => BadRequest()
             }
           } yield resp

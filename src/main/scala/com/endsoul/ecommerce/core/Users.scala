@@ -6,6 +6,8 @@ import cats.implicits.*
 import cats.effect.*
 
 import doobie.implicits.*
+import doobie.postgres._
+import doobie.postgres.implicits._
 import doobie.Transactor
 
 import org.typelevel.log4cats.Logger

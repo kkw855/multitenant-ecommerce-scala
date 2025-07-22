@@ -17,7 +17,7 @@ import org.http4s.implicits.uri
 
 import com.endsoul.ecommerce.core.{Categories, Subcategories}
 import com.endsoul.ecommerce.domain.{category, subcategory}
-import com.endsoul.ecommerce.domain.category.{Category, CategoryInfo}
+import com.endsoul.ecommerce.domain.category.*
 import com.endsoul.ecommerce.fixtures.SubcategoryFixture
 
 class CategoryRouteSpec
